@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#166534">
+  <meta name="description" content="AgroClima AI — apoio à decisão para condições meteorológicas de aplicação agrícola">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <title>AgroClima AI</title>
+  <style>
+    :root{--green:#166534;--green2:#22c55e;--bg:#f4f7f3;--card:#fff;--text:#17301e;--muted:#65736a;--line:#e4ebe5;--warn:#a16207;--bad:#b91c1c}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .app{max-width:720px;margin:auto;padding:18px 15px 40px}
+    header{display:flex;align-items:center;gap:12px;margin-bottom:18px}.logo{width:48px;height:48px;border-radius:15px;background:var(--green);display:grid;place-items:center;color:white;font-size:26px}
+    h1{font-size:24px;margin:0}.sub{color:var(--muted);font-size:13px;margin-top:2px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:17px;margin:12px 0;box-shadow:0 3px 16px #17301e0b}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.metric{padding:13px;border:1px solid var(--line);border-radius:15px}.metric b{display:block;font-size:22px;margin-top:4px}.label{font-size:12px;color:var(--muted)}
+    button{width:100%;border:0;border-radius:14px;padding:14px 16px;font-size:16px;font-weight:700;background:var(--green);color:#fff;cursor:pointer;margin-top:8px}
+    button.secondary{background:#e8f2ea;color:var(--green)}button:disabled{opacity:.55}
+    input{width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;font-size:16px;margin-top:6px;background:#fff}
+    .status{padding:14px;border-radius:15px;font-weight:800;text-align:center}.good{background:#dcfce7;color:#166534}.attention{background:#fef3c7;color:#92400e}.bad{background:#fee2e2;color:#991b1b}
+    .score{font-size:40px;font-weight:850;text-align:center;margin:5px 0}.muted{color:var(--muted)}.small{font-size:12px;line-height:1.45}
+    table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:9px 5px;border-bottom:1px solid var(--line);text-align:left}
+    .pill{display:inline-block;padding:5px 8px;border-radius:999px;font-size:11px;font-weight:700}.g{background:#dcfce7;color:#166534}.y{background:#fef3c7;color:#92400e}.r{background:#fee2e2;color:#991b1b}
+    .hidden{display:none}.loading{text-align:center;padding:12px}.footer{font-size:11px;color:var(--muted);line-height:1.5}
+    @media(max-width:430px){.row{grid-template-columns:1fr 1fr}.metric b{font-size:19px}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header><div class="logo">🌱</div><div><h1>AgroClima AI</h1><div class="sub">Assistente meteorológico agrícola</div></div></header>
+
+  <section class="card">
+    <h3>📍 Localização</h3>
+    <div id="locationText" class="muted">Aguardando localização do dispositivo...</div>
+    <button id="locBtn">📍 Usar minha localização</button>
+    <div id="loading" class="loading hidden">Consultando condições meteorológicas...</div>
+  </section>
+
+  <section id="weatherCard" class="card hidden">
+    <h3>🌦️ Condições atuais</h3>
+    <div class="row">
+      <div class="metric"><span class="label">Temperatura</span><b id="temp">—</b></div>
+      <div class="metric"><span class="label">Umidade</span><b id="humidity">—</b></div>
+      <div class="metric"><span class="label">Vento</span><b id="wind">—</b></div>
+      <div class="metric"><span class="label">Chuva</span><b id="rain">—</b></div>
+    </div>
+    <p class="small muted" id="updated"></p>
+  </section>
+
+  <section id="formCard" class="card hidden">
+    <h3>🧪 Aplicação</h3>
+    <label class="label">Cultura<input id="crop" value="Soja"></label>
+    <label class="label">Produto / classe<input id="product" value="Fungicida"></label>
+    <button id="analyzeBtn">🔎 Analisar condições</button>
+  </section>
+
+  <section id="resultCard" class="card hidden">
+    <h3>📊 Resultado</h3>
+    <div id="status" class="status"></div>
+    <div class="score" id="score">—</div>
+    <div class="muted" style="text-align:center">índice meteorológico</div>
+    <div class="row" style="margin-top:12px">
+      <div class="metric"><span class="label">Deriva</span><b id="drift">—</b></div>
+      <div class="metric"><span class="label">Clima</span><b id="climate">—</b></div>
+      <div class="metric"><span class="label">Chuva</span><b id="rainRisk">—</b></div>
+      <div class="metric"><span class="label">Cultura</span><b id="cropResult">—</b></div>
+    </div>
+    <h4>Análise</h4><div id="reasons"></div>
+  </section>
+
+  <section id="hoursCard" class="card hidden">
+    <h3>🕐 Próximas horas</h3>
+    <div style="overflow:auto"><table><thead><tr><th>Hora</th><th>Temp.</th><th>UR</th><th>Vento</th><th>Chuva</th><th>Janela</th></tr></thead><tbody id="hours"></tbody></table></div>
+  </section>
+
+  <section class="card">
+    <button class="secondary" id="installBtn" style="display:none">📲 Instalar AgroClima AI</button>
+    <p class="footer"><b>Importante:</b> este aplicativo é um protótipo de apoio à decisão. Os critérios do MVP são demonstrativos e não substituem bula/rótulo, legislação, responsável técnico ou avaliação real no campo.</p>
+    <p class="footer">Dados meteorológicos: Open-Meteo. A localização é obtida pelo navegador e só é usada para consultar o clima da coordenada autorizada.</p>
+  </section>
+</div>
+<script>
+let weather=null, deferredPrompt=null;
+const $=id=>document.getElementById(id);
+function show(id){$(id).classList.remove('hidden')}
+function hide(id){$(id).classList.add('hidden')}
+function fmtHour(s){return s.slice(11,16)}
+function analyze(t,h,w,r){
+  let score=100, reasons=[];
+  if(w>15){score-=35;reasons.push('Vento elevado: maior atenção ao risco de deriva.');} else if(w>10){score-=15;reasons.push('Vento exige atenção.');}
+  if(t>30){score-=20;reasons.push('Temperatura elevada.');} else if(t<15){score-=10;reasons.push('Temperatura baixa.');}
+  if(h<45){score-=20;reasons.push('Umidade relativa baixa.');} else if(h<55){score-=10;reasons.push('Umidade relativa merece atenção.');}
+  if(r>=60){score-=30;reasons.push('Probabilidade de chuva elevada.');} else if(r>=30){score-=15;reasons.push('Possibilidade relevante de chuva.');}
+  score=Math.max(0,Math.min(100,score));
+  let cls=score>=75?'FAVORÁVEL':score>=50?'ATENÇÃO':'DESFAVORÁVEL';
+  let drift=w>15?'ALTO':w>10?'MÉDIO':'BAIXO', climate=score>=75?'BAIXO':score>=50?'MÉDIO':'ALTO', rr=r>=60?'ALTO':r>=30?'MÉDIO':'BAIXO';
+  if(!reasons.length) reasons=['Nenhum alerta meteorológico identificado pelos critérios demonstrativos.'];
+  return {score,cls,drift,climate,rr,reasons};
+}
+function windowClass(t,h,w,r){return analyze(t,h,w,r)}
+function render(){
+  const c=weather.current, h=weather.hourly, now=Date.parse(c.time);
+  let idx=0, best=0, bestScore=-1;
+  for(let i=0;i<h.time.length;i++){let d=Math.abs(Date.parse(h.time[i])-now);if(d<Math.abs(Date.parse(h.time[idx])-now))idx=i}
+  for(let i=idx;i<Math.min(idx+12,h.time.length);i++){let a=windowClass(h.temperature_2m[i],h.relative_humidity_2m[i],h.wind_speed_10m[i],h.precipitation_probability[i]);if(a.score>bestScore){bestScore=a.score;best=i}}
+  $('temp').textContent=c.temperature_2m.toFixed(1)+' °C'; $('humidity').textContent=Math.round(c.relative_humidity_2m)+'%';
+  $('wind').textContent=c.wind_speed_10m.toFixed(1)+' km/h'; $('rain').textContent=Math.round(h.precipitation_probability[idx])+'%';
+  $('updated').textContent='Atualizado: '+c.time.replace('T',' ')+' (horário local)';
+  show('weatherCard'); show('formCard'); show('hoursCard');
+  $('hours').innerHTML='';
+  for(let i=idx;i<Math.min(idx+12,h.time.length);i++){
+    const a=windowClass(h.temperature_2m[i],h.relative_humidity_2m[i],h.wind_speed_10m[i],h.precipitation_probability[i]);
+    const cls=a.cls==='FAVORÁVEL'?'g':a.cls==='ATENÇÃO'?'y':'r';
+    $('hours').insertAdjacentHTML('beforeend',`<tr><td>${fmtHour(h.time[i])}</td><td>${h.temperature_2m[i].toFixed(1)}°</td><td>${Math.round(h.relative_humidity_2m[i])}%</td><td>${h.wind_speed_10m[i].toFixed(1)}</td><td>${Math.round(h.precipitation_probability[i])}%</td><td><span class="pill ${cls}">${a.cls}</span></td></tr>`);
+  }
+}
+async function getWeather(lat,lon){
+  const u=new URL('https://api.open-meteo.com/v1/forecast');
+  u.search=new URLSearchParams({latitude:lat,longitude:lon,current:'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m',hourly:'precipitation_probability,temperature_2m,relative_humidity_2m,wind_speed_10m',forecast_days:'2',timezone:'auto'});
+  const res=await fetch(u); if(!res.ok)throw new Error('Falha na consulta meteorológica'); return await res.json();
+}
+function getPosition(){
+  const cap=window.Capacitor;
+  if(cap&&cap.isNativePlatform&&cap.isNativePlatform()&&cap.Plugins&&cap.Plugins.Geolocation){
+    const G=cap.Plugins.Geolocation;
+    return G.requestPermissions().then(()=>G.getCurrentPosition({enableHighAccuracy:true,timeout:15000}));
+  }
+  return new Promise((ok,fail)=>{
+    if(!navigator.geolocation){fail(new Error('sem geolocalização'));return}
+    navigator.geolocation.getCurrentPosition(ok,fail,{enableHighAccuracy:true,timeout:15000,maximumAge:60000});
+  });
+}
+async function locate(){
+  $('loading').classList.remove('hidden'); $('locBtn').disabled=true;
+  try{
+    const pos=await getPosition();
+    const {latitude,longitude}=pos.coords;
+    $('locationText').textContent=`Localização: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+    try{weather=await getWeather(latitude,longitude);render();}
+    catch(e){alert('Não foi possível consultar o clima agora. Verifique sua internet e tente novamente.');console.error(e)}
+  }catch(err){
+    alert('Não foi possível obter a localização. Permita o acesso à localização e tente novamente.');
+  }
+  $('loading').classList.add('hidden');$('locBtn').disabled=false;
+}
+$('locBtn').onclick=locate;
+$('analyzeBtn').onclick=()=>{
+  if(!weather)return;
+  const a=analyze(weather.current.temperature_2m,weather.current.relative_humidity_2m,weather.current.wind_speed_10m,weather.hourly.precipitation_probability[0]);
+  $('status').textContent=(a.cls==='FAVORÁVEL'?'🟢 ':a.cls==='ATENÇÃO'?'🟡 ':'🔴 ')+a.cls;
+  $('status').className='status '+(a.cls==='FAVORÁVEL'?'good':a.cls==='ATENÇÃO'?'attention':'bad');
+  $('score').textContent=a.score+'/100';$('drift').textContent=a.drift;$('climate').textContent=a.climate;$('rainRisk').textContent=a.rr;$('cropResult').textContent=$('crop').value;
+  $('reasons').innerHTML=a.reasons.map(x=>'<p>• '+x+'</p>').join('');
+  show('resultCard');
+};
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;$('installBtn').style.display='block'});
+$('installBtn').onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null;$('installBtn').style.display='none'}};
+if('serviceWorker' in navigator && !(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())) navigator.serviceWorker.register('sw.js').catch(console.error);
+</script>
+</body>
+</html>
